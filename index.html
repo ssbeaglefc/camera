@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Hand Tracking Camera</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #050505;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+#container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+video {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+
+    transform: scaleX(-1);
+}
+
+/* Canvas untuk garis dan efek */
+#canvas {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    pointer-events: none;
+}
+
+/* Tampilan awal */
+#startScreen {
+    position: absolute;
+    z-index: 10;
+
+    inset: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+    align-items: center;
+
+    background:
+        radial-gradient(circle at center,
+        #173b2d,
+        #050505 65%);
+}
+
+#startScreen h1 {
+    font-size: 30px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#startScreen p {
+    color: #aaa;
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+#startButton {
+    border: none;
+    padding: 15px 30px;
+
+    border-radius: 50px;
+
+    background: #00ff88;
+    color: #00150b;
+
+    font-size: 17px;
+    font-weight: bold;
+
+    box-shadow: 0 0 30px #00ff88;
+
+    cursor: pointer;
+}
+
+#info {
+    position: absolute;
+    z-index: 5;
+
+    top: 20px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    padding: 10px 18px;
+
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(10px);
+
+    border-radius: 30px;
+
+    font-size: 14px;
+
+    white-space: nowrap;
+}
+
+/* Nama filter */
+#filterName {
+    position: absolute;
+    z-index: 5;
+
+    bottom: 25px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    padding: 8px 16px;
+
+    background: rgba(0,0,0,.55);
+
+    border-radius: 20px;
+
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+
+    <video id="video" autoplay playsinline></video>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="info">
+        ✋ Buka kedua tangan
+    </div>
+
+    <div id="filterName">
+        Filter: -
+    </div>
+
+    <div id="startScreen">
+
+        <h1>✋ HAND TRACKING</h1>
+
+        <p>
+            Buka kedua tangan untuk membuat objek
+        </p>
+
+        <button id="startButton">
+            BUKA KAMERA
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+
+<script>
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const startScreen =
+    document.getElementById("startScreen");
+
+const startButton =
+    document.getElementById("startButton");
+
+const info =
+    document.getElementById("info");
+
+const filterName =
+    document.getElementById("filterName");
+
+
+let camera;
+
+let currentFilter = 0;
+
+let lastChange = 0;
+
+
+/* =========================
+   RESIZE CANVAS
+========================= */
+
+function resizeCanvas() {
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+resizeCanvas();
+
+
+/* =========================
+   FILTER
+========================= */
+
+const filters = [
+
+    {
+        name: "NEON",
+        color: "#00ff88"
+    },
+
+    {
+        name: "CYBER",
+        color: "#00eaff"
+    },
+
+    {
+        name: "MAGIC",
+        color: "#cc66ff"
+    },
+
+    {
+        name: "FIRE",
+        color: "#ff5533"
+    },
+
+    {
+        name: "ICE",
+        color: "#66ccff"
+    },
+
+    {
+        name: "GOLD",
+        color: "#ffd700"
+    }
+
+];
+
+
+/* =========================
+   RANDOM FILTER
+========================= */
+
+function randomFilter() {
+
+    currentFilter =
+        Math.floor(Math.random() * filters.length);
+
+    filterName.innerText =
+        "Filter: " + filters[currentFilter].name;
+
+}
+
+
+/* =========================
+   LANDMARK POSITION
+========================= */
+
+function getPoint(landmark) {
+
+    return {
+
+        x: (1 - landmark.x) * canvas.width,
+
+        y: landmark.y * canvas.height
+
+    };
+
+}
+
+
+/* =========================
+   DRAW GLOW LINE
+========================= */
+
+function drawLine(x1, y1, x2, y2, color) {
+
+    ctx.save();
+
+    ctx.strokeStyle = color;
+
+    ctx.lineWidth = 3;
+
+    ctx.shadowBlur = 20;
+
+    ctx.shadowColor = color;
+
+    ctx.beginPath();
+
+    ctx.moveTo(x1, y1);
+
+    ctx.lineTo(x2, y2);
+
+    ctx.stroke();
+
+    ctx.restore();
+
+}
+
+
+/* =========================
+   DRAW CORNER
+========================= */
+
+function drawCorner(x, y, size, color) {
+
+    const s = size;
+
+    ctx.save();
+
+    ctx.strokeStyle = color;
+
+    ctx.lineWidth = 4;
+
+    ctx.shadowBlur = 20;
+
+    ctx.shadowColor = color;
+
+    ctx.beginPath();
+
+    ctx.moveTo(x, y + s);
+    ctx.lineTo(x, y);
+
+    ctx.lineTo(x + s, y);
+
+    ctx.stroke();
+
+    ctx.restore();
+
+}
+
+
+/* =========================
+   DRAW RANDOM FILTER
+========================= */
+
+function drawFilter(x, y, w, h, color) {
+
+    ctx.save();
+
+    /* Transparansi */
+
+    ctx.fillStyle = color + "18";
+
+    ctx.fillRect(x, y, w, h);
+
+
+    /* Garis dalam */
+
+    ctx.strokeStyle = color + "55";
+
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < 10; i++) {
+
+        let yy = y + (h / 10) * i;
+
+        ctx.beginPath();
+
+        ctx.moveTo(x, yy);
+
+        ctx.lineTo(x + w, yy);
+
+        ctx.stroke();
+
+    }
+
+
+    /* Lingkaran */
+
+    ctx.strokeStyle = color + "99";
+
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x + w / 2,
+        y + h / 2,
+        Math.min(w,h) / 4,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    /* Titik tengah */
+
+    ctx.fillStyle = color;
+
+    ctx.shadowBlur = 15;
+
+    ctx.shadowColor = color;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x + w / 2,
+        y + h / 2,
+        5,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+}
+
+
+/* =========================
+   PARTICLES
+========================= */
+
+function drawParticles(x, y, w, h, color) {
+
+    ctx.save();
+
+    ctx.fillStyle = color;
+
+    for (let i = 0; i < 25; i++) {
+
+        let px =
+            x + Math.random() * w;
+
+        let py =
+            y + Math.random() * h;
+
+        ctx.globalAlpha =
+            Math.random() * .7;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            px,
+            py,
+            Math.random() * 2 + 1,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+    }
+
+    ctx.restore();
+
+}
+
+
+/* =========================
+   HAND RESULTS
+========================= */
+
+function onResults(results) {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    if (
+        !results.multiHandLandmarks ||
+        results.multiHandLandmarks.length < 2
+    ) {
+
+        info.innerText =
+            "✋ Buka kedua tangan";
+
+        return;
+
+    }
+
+
+    /*
+       Dua tangan terdeteksi
+    */
+
+    info.innerText =
+        "✨ Dua tangan terdeteksi";
+
+
+    const hand1 =
+        results.multiHandLandmarks[0];
+
+    const hand2 =
+        results.multiHandLandmarks[1];
+
+
+    /*
+       Ambil titik WRIST
+    */
+
+    const p1 =
+        getPoint(hand1[0]);
+
+    const p2 =
+        getPoint(hand2[0]);
+
+
+    /*
+       Titik tengah
+    */
+
+    const centerX =
+        (p1.x + p2.x) / 2;
+
+    const centerY =
+        (p1.y + p2.y) / 2;
+
+
+    /*
+       Ukuran kotak
+    */
+
+    let width =
+        Math.abs(p2.x - p1.x);
+
+    let height =
+        width * 0.7;
+
+
+    /*
+       Jangan terlalu kecil
+    */
+
+    width =
+        Math.max(width, 120);
+
+    height =
+        Math.max(height, 100);
+
+
+    const x =
+        centerX - width / 2;
+
+    const y =
+        centerY - height / 2;
+
+
+    const color =
+        filters[currentFilter].color;
+
+
+    /*
+       Ganti filter setiap beberapa detik
+    */
+
+    if (
+        Date.now() - lastChange > 3500
+    ) {
+
+        randomFilter();
+
+        lastChange = Date.now();
+
+    }
+
+
+    /* =====================
+       GARIS KE TANGAN
+    ===================== */
+
+    drawLine(
+        p1.x,
+        p1.y,
+        x,
+        y + height / 2,
+        color
+    );
+
+
+    drawLine(
+        p2.x,
+        p2.y,
+        x + width,
+        y + height / 2,
+        color
+    );
+
+
+    /* =====================
+       KOTAK
+    ===================== */
+
+    ctx.save();
+
+    ctx.strokeStyle = color;
+
+    ctx.lineWidth = 3;
+
+    ctx.shadowBlur = 20;
+
+    ctx.shadowColor = color;
+
+    ctx.strokeRect(
+        x,
+        y,
+        width,
+        height
+    );
+
+    ctx.restore();
+
+
+    /* =====================
+       CORNER
+    ===================== */
+
+    drawCorner(
+        x,
+        y,
+        25,
+        color
+    );
+
+    ctx.save();
+
+    ctx.translate(
+        x + width,
+        y
+    );
+
+    ctx.rotate(
+        Math.PI / 2
+    );
+
+    drawCorner(
+        0,
+        0,
+        25,
+        color
+    );
+
+    ctx.restore();
+
+
+    ctx.save();
+
+    ctx.translate(
+        x + width,
+        y + height
+    );
+
+    ctx.rotate(
+        Math.PI
+    );
+
+    drawCorner(
+        0,
+        0,
+        25,
+        color
+    );
+
+    ctx.restore();
+
+
+    ctx.save();
+
+    ctx.translate(
+        x,
+        y + height
+    );
+
+    ctx.rotate(
+        -Math.PI / 2
+    );
+
+    drawCorner(
+        0,
+        0,
+        25,
+        color
+    );
+
+    ctx.restore();
+
+
+    /* =====================
+       FILTER DALAM KOTAK
+    ===================== */
+
+    drawFilter(
+        x,
+        y,
+        width,
+        height,
+        color
+    );
+
+
+    /* =====================
+       PARTICLES
+    ===================== */
+
+    drawParticles(
+        x,
+        y,
+        width,
+        height,
+        color
+    );
+
+
+    /*
+       TITIK TANGAN
+    */
+
+    ctx.fillStyle = color;
+
+    ctx.shadowBlur = 15;
+
+    ctx.shadowColor = color;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        p1.x,
+        p1.y,
+        7,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        p2.x,
+        p2.y,
+        7,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+}
+
+
+/* =========================
+   MEDIAPIPE HANDS
+========================= */
+
+const hands = new Hands({
+
+    locateFile: (file) => {
+
+        return `
+        https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}
+        `;
+
+    }
+
+});
+
+
+hands.setOptions({
+
+    maxNumHands: 2,
+
+    modelComplexity: 1,
+
+    minDetectionConfidence: 0.6,
+
+    minTrackingConfidence: 0.6
+
+});
+
+
+hands.onResults(onResults);
+
+
+/* =========================
+   START CAMERA
+========================= */
+
+startButton.addEventListener(
+    "click",
+    async () => {
+
+        try {
+
+            startScreen.style.display =
+                "none";
+
+
+            camera = new Camera(
+                video,
+                {
+
+                    onFrame: async () => {
+
+                        await hands.send({
+                            image: video
+                        });
+
+                    },
+
+                    width: 1280,
+
+                    height: 720
+
+                }
+            );
+
+
+            camera.start();
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+            startScreen.style.display =
+                "flex";
+
+            alert(
+                "Kamera tidak dapat dibuka. Pastikan izin kamera diberikan."
+            );
+
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>

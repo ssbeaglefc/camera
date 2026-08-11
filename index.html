@@ -2,10 +2,9 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Hand Tracking Camera</title>
+<title>AI Hand Tracking AR</title>
 
 <style>
 * {
@@ -14,32 +13,38 @@
     box-sizing: border-box;
 }
 
+html,
 body {
-    background: #050505;
-    color: white;
-    font-family: Arial, sans-serif;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
+    background: #000;
+    font-family: Arial, sans-serif;
 }
 
-#container {
+#app {
     position: relative;
     width: 100vw;
     height: 100vh;
     overflow: hidden;
 }
 
-video {
+/* CAMERA */
+#video {
     position: absolute;
+
     width: 100%;
     height: 100%;
+
     object-fit: cover;
 
     transform: scaleX(-1);
 }
 
-/* Canvas untuk garis dan efek */
+/* TRACKING CANVAS */
 #canvas {
     position: absolute;
+
     inset: 0;
 
     width: 100%;
@@ -48,12 +53,13 @@ video {
     pointer-events: none;
 }
 
-/* Tampilan awal */
+/* START SCREEN */
 #startScreen {
     position: absolute;
-    z-index: 10;
 
     inset: 0;
+
+    z-index: 20;
 
     display: flex;
     flex-direction: column;
@@ -61,105 +67,155 @@ video {
     justify-content: center;
     align-items: center;
 
+    text-align: center;
+
     background:
-        radial-gradient(circle at center,
-        #173b2d,
-        #050505 65%);
+        radial-gradient(
+            circle,
+            #082b20,
+            #020202 65%
+        );
 }
 
 #startScreen h1 {
     font-size: 30px;
-    margin-bottom: 10px;
-    text-align: center;
+    letter-spacing: 2px;
+
+    margin-bottom: 12px;
 }
 
 #startScreen p {
     color: #aaa;
-    text-align: center;
+
+    max-width: 300px;
+
+    line-height: 1.5;
+
     margin-bottom: 25px;
 }
 
 #startButton {
     border: none;
+
     padding: 15px 30px;
 
     border-radius: 50px;
 
-    background: #00ff88;
-    color: #00150b;
+    background: #00ff9d;
 
-    font-size: 17px;
+    color: #00150d;
+
+    font-size: 16px;
+
     font-weight: bold;
 
-    box-shadow: 0 0 30px #00ff88;
+    box-shadow:
+        0 0 15px #00ff9d,
+        0 0 40px #00ff9d55;
 
     cursor: pointer;
 }
 
-#info {
+/* STATUS */
+#status {
     position: absolute;
-    z-index: 5;
 
     top: 20px;
     left: 50%;
 
     transform: translateX(-50%);
 
-    padding: 10px 18px;
+    z-index: 10;
 
-    background: rgba(0,0,0,.5);
-    backdrop-filter: blur(10px);
+    padding: 9px 18px;
 
     border-radius: 30px;
 
-    font-size: 14px;
+    background: rgba(0,0,0,.55);
+
+    backdrop-filter: blur(10px);
+
+    color: white;
+
+    font-size: 13px;
 
     white-space: nowrap;
 }
 
-/* Nama filter */
+/* FILTER NAME */
 #filterName {
     position: absolute;
-    z-index: 5;
 
     bottom: 25px;
     left: 50%;
 
     transform: translateX(-50%);
 
-    padding: 8px 16px;
+    z-index: 10;
 
-    background: rgba(0,0,0,.55);
+    padding: 8px 15px;
 
     border-radius: 20px;
 
-    font-size: 13px;
+    background: rgba(0,0,0,.55);
+
+    color: white;
+
+    font-size: 12px;
+}
+
+/* LOADING */
+#loading {
+    position: absolute;
+
+    inset: 0;
+
+    display: none;
+
+    justify-content: center;
+    align-items: center;
+
+    z-index: 30;
+
+    background: #000c;
+
+    color: white;
 }
 </style>
 </head>
 
 <body>
 
-<div id="container">
+<div id="app">
 
-    <video id="video" autoplay playsinline></video>
+    <!-- CAMERA -->
+    <video
+        id="video"
+        autoplay
+        playsinline>
+    </video>
 
+    <!-- TRACKING -->
     <canvas id="canvas"></canvas>
 
-    <div id="info">
-        ✋ Buka kedua tangan
+    <!-- STATUS -->
+    <div id="status">
+        ✋ Tunjukkan tangan ke kamera
     </div>
 
+    <!-- FILTER -->
     <div id="filterName">
-        Filter: -
+        FILTER: -
     </div>
 
+    <!-- START -->
     <div id="startScreen">
 
-        <h1>✋ HAND TRACKING</h1>
+        <h1>✋ AI HAND TRACKING</h1>
 
         <p>
-            Buka kedua tangan untuk membuat objek
+            Izinkan kamera kemudian tunjukkan
+            kedua tangan ke kamera.
         </p>
 
         <button id="startButton">
@@ -168,24 +224,32 @@ video {
 
     </div>
 
+    <div id="loading">
+        Memuat AI Hand Tracking...
+    </div>
+
 </div>
 
 
-<!-- MediaPipe -->
+<!-- =========================
+     MEDIAPIPE
+========================= -->
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
 
 <script>
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const video =
+    document.getElementById("video");
+
+const canvas =
+    document.getElementById("canvas");
+
+const ctx =
+    canvas.getContext("2d");
 
 const startScreen =
     document.getElementById("startScreen");
@@ -193,128 +257,421 @@ const startScreen =
 const startButton =
     document.getElementById("startButton");
 
-const info =
-    document.getElementById("info");
+const statusText =
+    document.getElementById("status");
 
 const filterName =
     document.getElementById("filterName");
 
-
-let camera;
-
-let currentFilter = 0;
-
-let lastChange = 0;
+const loading =
+    document.getElementById("loading");
 
 
-/* =========================
-   RESIZE CANVAS
-========================= */
+/* =================================
+   CANVAS
+================================= */
 
 function resizeCanvas() {
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width =
+        window.innerWidth;
+
+    canvas.height =
+        window.innerHeight;
 
 }
 
-window.addEventListener("resize", resizeCanvas);
-
 resizeCanvas();
 
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
 
-/* =========================
+
+/* =================================
    FILTER
-========================= */
+================================= */
 
 const filters = [
 
     {
-        name: "NEON",
-        color: "#00ff88"
+        name: "NEON MATRIX",
+        color: "#00ff9d"
     },
 
     {
-        name: "CYBER",
+        name: "CYBER BLUE",
         color: "#00eaff"
     },
 
     {
-        name: "MAGIC",
-        color: "#cc66ff"
+        name: "PURPLE ENERGY",
+        color: "#b866ff"
     },
 
     {
         name: "FIRE",
-        color: "#ff5533"
-    },
-
-    {
-        name: "ICE",
-        color: "#66ccff"
+        color: "#ff4d32"
     },
 
     {
         name: "GOLD",
-        color: "#ffd700"
+        color: "#ffd43b"
+    },
+
+    {
+        name: "ICE",
+        color: "#6edbff"
     }
 
 ];
 
+let activeFilter = 0;
 
-/* =========================
+let lastFilterChange = 0;
+
+
+/* =================================
    RANDOM FILTER
-========================= */
+================================= */
 
 function randomFilter() {
 
-    currentFilter =
-        Math.floor(Math.random() * filters.length);
+    activeFilter =
+        Math.floor(
+            Math.random() *
+            filters.length
+        );
 
     filterName.innerText =
-        "Filter: " + filters[currentFilter].name;
+        "FILTER: " +
+        filters[activeFilter].name;
 
 }
 
 
-/* =========================
-   LANDMARK POSITION
-========================= */
+/* =================================
+   LANDMARK -> SCREEN
+================================= */
 
-function getPoint(landmark) {
+function point(landmark) {
 
     return {
 
-        x: (1 - landmark.x) * canvas.width,
+        /*
+         * Karena kamera ditampilkan
+         * mirror / flip horizontal
+         */
 
-        y: landmark.y * canvas.height
+        x =
+            (1 - landmark.x) *
+            canvas.width,
+
+        y =
+            landmark.y *
+            canvas.height
 
     };
 
 }
 
 
-/* =========================
-   DRAW GLOW LINE
-========================= */
+/* =================================
+   MEDIAPIPE HAND CONNECTIONS
+================================= */
 
-function drawLine(x1, y1, x2, y2, color) {
+/*
+    21 landmark tangan:
+
+    0  = wrist
+
+    Thumb:
+    1-2-3-4
+
+    Index:
+    5-6-7-8
+
+    Middle:
+    9-10-11-12
+
+    Ring:
+    13-14-15-16
+
+    Pinky:
+    17-18-19-20
+*/
+
+const connections = [
+
+    /* Wrist -> Thumb */
+
+    [0,1],
+    [1,2],
+    [2,3],
+    [3,4],
+
+    /* Wrist -> Index */
+
+    [0,5],
+    [5,6],
+    [6,7],
+    [7,8],
+
+    /* Wrist -> Middle */
+
+    [0,9],
+    [9,10],
+    [10,11],
+    [11,12],
+
+    /* Wrist -> Ring */
+
+    [0,13],
+    [13,14],
+    [14,15],
+    [15,16],
+
+    /* Wrist -> Pinky */
+
+    [0,17],
+    [17,18],
+    [18,19],
+    [19,20],
+
+    /* Palm */
+
+    [5,9],
+    [9,13],
+    [13,17]
+
+];
+
+
+/* =================================
+   DRAW HAND SKELETON
+================================= */
+
+function drawHand(landmarks, color) {
+
+    const pts =
+        landmarks.map(point);
+
+
+    /* ===============================
+       GLOW
+    =============================== */
 
     ctx.save();
 
-    ctx.strokeStyle = color;
+    ctx.shadowColor =
+        color;
 
-    ctx.lineWidth = 3;
+    ctx.shadowBlur =
+        12;
 
-    ctx.shadowBlur = 20;
+    ctx.strokeStyle =
+        color;
 
-    ctx.shadowColor = color;
+    ctx.lineWidth =
+        2.5;
+
+
+    /* ===============================
+       CONNECT LANDMARKS
+    =============================== */
+
+    connections.forEach(
+        connection => {
+
+            const a =
+                pts[connection[0]];
+
+            const b =
+                pts[connection[1]];
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                a.x,
+                a.y
+            );
+
+            ctx.lineTo(
+                b.x,
+                b.y
+            );
+
+            ctx.stroke();
+
+        }
+    );
+
+    ctx.restore();
+
+
+    /* ===============================
+       LANDMARK POINTS
+    =============================== */
+
+    pts.forEach(
+        (p, index) => {
+
+            ctx.save();
+
+            ctx.fillStyle =
+                color;
+
+            ctx.shadowColor =
+                color;
+
+            ctx.shadowBlur =
+                15;
+
+
+            /*
+             * Ujung jari dibuat lebih besar
+             */
+
+            const fingertips =
+                [4,8,12,16,20];
+
+            const radius =
+                fingertips.includes(index)
+                ? 5
+                : 3;
+
+
+            ctx.beginPath();
+
+            ctx.arc(
+                p.x,
+                p.y,
+                radius,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+
+            ctx.restore();
+
+        }
+    );
+
+}
+
+
+/* =================================
+   GET HAND CENTER
+================================= */
+
+function getHandCenter(hand) {
+
+    const palmPoints = [
+
+        hand[0],
+        hand[5],
+        hand[9],
+        hand[13],
+        hand[17]
+
+    ];
+
+
+    let x = 0;
+    let y = 0;
+
+
+    palmPoints.forEach(
+        p => {
+
+            const q =
+                point(p);
+
+            x += q.x;
+            y += q.y;
+
+        }
+    );
+
+
+    return {
+
+        x: x / palmPoints.length,
+
+        y: y / palmPoints.length
+
+    };
+
+}
+
+
+/* =================================
+   DISTANCE
+================================= */
+
+function distance(a,b) {
+
+    return Math.sqrt(
+
+        Math.pow(
+            b.x - a.x,
+            2
+        )
+
+        +
+
+        Math.pow(
+            b.y - a.y,
+            2
+        )
+
+    );
+
+}
+
+
+/* =================================
+   DRAW LINE
+================================= */
+
+function line(
+    x1,
+    y1,
+    x2,
+    y2,
+    color,
+    width = 2
+) {
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        color;
+
+    ctx.lineWidth =
+        width;
+
+    ctx.shadowColor =
+        color;
+
+    ctx.shadowBlur =
+        15;
 
     ctx.beginPath();
 
-    ctx.moveTo(x1, y1);
+    ctx.moveTo(
+        x1,
+        y1
+    );
 
-    ctx.lineTo(x2, y2);
+    ctx.lineTo(
+        x2,
+        y2
+    );
 
     ctx.stroke();
 
@@ -323,86 +680,137 @@ function drawLine(x1, y1, x2, y2, color) {
 }
 
 
-/* =========================
-   DRAW CORNER
-========================= */
+/* =================================
+   DRAW CENTER SHAPE
+================================= */
 
-function drawCorner(x, y, size, color) {
+function drawCenterShape(
+    left,
+    right,
+    color
+) {
 
-    const s = size;
+    const cx =
+        (left.x + right.x) / 2;
+
+    const cy =
+        (left.y + right.y) / 2;
+
+
+    let w =
+        distance(
+            left,
+            right
+        );
+
+
+    /*
+     * Ukuran shape mengikuti
+     * jarak kedua tangan
+     */
+
+    w *= 0.9;
+
+
+    const h =
+        w * 0.65;
+
+
+    const x =
+        cx - w / 2;
+
+    const y =
+        cy - h / 2;
+
+
+    /* ==========================
+       TRANSPARENT FILL
+    ========================== */
 
     ctx.save();
 
-    ctx.strokeStyle = color;
+    ctx.fillStyle =
+        color + "12";
 
-    ctx.lineWidth = 4;
+    ctx.fillRect(
+        x,
+        y,
+        w,
+        h
+    );
 
-    ctx.shadowBlur = 20;
 
-    ctx.shadowColor = color;
+    /* ==========================
+       OUTER RECTANGLE
+    ========================== */
+
+    ctx.strokeStyle =
+        color;
+
+    ctx.lineWidth =
+        3;
+
+    ctx.shadowColor =
+        color;
+
+    ctx.shadowBlur =
+        25;
+
+    ctx.strokeRect(
+        x,
+        y,
+        w,
+        h
+    );
+
+
+    /* ==========================
+       INNER DIAMOND
+    ========================== */
+
+    ctx.strokeStyle =
+        color + "99";
+
+    ctx.lineWidth =
+        2;
 
     ctx.beginPath();
 
-    ctx.moveTo(x, y + s);
-    ctx.lineTo(x, y);
+    ctx.moveTo(
+        cx,
+        y + 20
+    );
 
-    ctx.lineTo(x + s, y);
+    ctx.lineTo(
+        x + w - 20,
+        cy
+    );
+
+    ctx.lineTo(
+        cx,
+        y + h - 20
+    );
+
+    ctx.lineTo(
+        x + 20,
+        cy
+    );
+
+    ctx.closePath();
 
     ctx.stroke();
 
-    ctx.restore();
 
-}
-
-
-/* =========================
-   DRAW RANDOM FILTER
-========================= */
-
-function drawFilter(x, y, w, h, color) {
-
-    ctx.save();
-
-    /* Transparansi */
-
-    ctx.fillStyle = color + "18";
-
-    ctx.fillRect(x, y, w, h);
-
-
-    /* Garis dalam */
-
-    ctx.strokeStyle = color + "55";
-
-    ctx.lineWidth = 1;
-
-    for (let i = 0; i < 10; i++) {
-
-        let yy = y + (h / 10) * i;
-
-        ctx.beginPath();
-
-        ctx.moveTo(x, yy);
-
-        ctx.lineTo(x + w, yy);
-
-        ctx.stroke();
-
-    }
-
-
-    /* Lingkaran */
-
-    ctx.strokeStyle = color + "99";
-
-    ctx.lineWidth = 2;
+    /* ==========================
+       CENTER CIRCLE
+    ========================== */
 
     ctx.beginPath();
 
     ctx.arc(
-        x + w / 2,
-        y + h / 2,
-        Math.min(w,h) / 4,
+        cx,
+        cy,
+        Math.min(w,h) * 0.12,
         0,
         Math.PI * 2
     );
@@ -410,75 +818,118 @@ function drawFilter(x, y, w, h, color) {
     ctx.stroke();
 
 
-    /* Titik tengah */
-
-    ctx.fillStyle = color;
-
-    ctx.shadowBlur = 15;
-
-    ctx.shadowColor = color;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x + w / 2,
-        y + h / 2,
-        5,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-
     ctx.restore();
 
-}
+
+    /* ==========================
+       PARTICLES
+    ========================== */
+
+    for (
+        let i = 0;
+        i < 30;
+        i++
+    ) {
+
+        const px =
+            x +
+            Math.random() * w;
+
+        const py =
+            y +
+            Math.random() * h;
 
 
-/* =========================
-   PARTICLES
-========================= */
+        ctx.save();
 
-function drawParticles(x, y, w, h, color) {
-
-    ctx.save();
-
-    ctx.fillStyle = color;
-
-    for (let i = 0; i < 25; i++) {
-
-        let px =
-            x + Math.random() * w;
-
-        let py =
-            y + Math.random() * h;
+        ctx.fillStyle =
+            color;
 
         ctx.globalAlpha =
             Math.random() * .7;
+
+        ctx.shadowColor =
+            color;
+
+        ctx.shadowBlur =
+            10;
+
 
         ctx.beginPath();
 
         ctx.arc(
             px,
             py,
-            Math.random() * 2 + 1,
+            Math.random() * 2,
             0,
             Math.PI * 2
         );
 
         ctx.fill();
 
-    }
+        ctx.restore();
 
-    ctx.restore();
+    }
 
 }
 
 
-/* =========================
-   HAND RESULTS
-========================= */
+/* =================================
+   CONNECT TWO HANDS
+================================= */
+
+function connectHands(
+    left,
+    right,
+    color
+) {
+
+    /*
+     * Garis utama
+     */
+
+    line(
+        left.x,
+        left.y,
+        right.x,
+        right.y,
+        color,
+        3
+    );
+
+
+    /*
+     * Garis silang
+     */
+
+    const offset = 20;
+
+
+    line(
+        left.x,
+        left.y - offset,
+        right.x,
+        right.y + offset,
+        color + "66",
+        1
+    );
+
+
+    line(
+        left.x,
+        left.y + offset,
+        right.x,
+        right.y - offset,
+        color + "66",
+        1
+    );
+
+}
+
+
+/* =================================
+   MEDIAPIPE RESULTS
+================================= */
 
 function onResults(results) {
 
@@ -490,304 +941,144 @@ function onResults(results) {
     );
 
 
+    const hands =
+        results.multiHandLandmarks;
+
+
     if (
-        !results.multiHandLandmarks ||
-        results.multiHandLandmarks.length < 2
+        !hands ||
+        hands.length === 0
     ) {
 
-        info.innerText =
-            "✋ Buka kedua tangan";
+        statusText.innerText =
+            "✋ Tunjukkan tangan ke kamera";
 
         return;
 
     }
 
 
-    /*
-       Dua tangan terdeteksi
-    */
+    /* ==========================
+       SATU TANGAN
+    ========================== */
 
-    info.innerText =
-        "✨ Dua tangan terdeteksi";
+    if (hands.length === 1) {
 
+        statusText.innerText =
+            "🖐️ 1 tangan terdeteksi";
 
-    const hand1 =
-        results.multiHandLandmarks[0];
+        drawHand(
+            hands[0],
+            filters[activeFilter].color
+        );
 
-    const hand2 =
-        results.multiHandLandmarks[1];
+        return;
 
-
-    /*
-       Ambil titik WRIST
-    */
-
-    const p1 =
-        getPoint(hand1[0]);
-
-    const p2 =
-        getPoint(hand2[0]);
+    }
 
 
-    /*
-       Titik tengah
-    */
+    /* ==========================
+       DUA TANGAN
+    ========================== */
 
-    const centerX =
-        (p1.x + p2.x) / 2;
-
-    const centerY =
-        (p1.y + p2.y) / 2;
-
-
-    /*
-       Ukuran kotak
-    */
-
-    let width =
-        Math.abs(p2.x - p1.x);
-
-    let height =
-        width * 0.7;
-
-
-    /*
-       Jangan terlalu kecil
-    */
-
-    width =
-        Math.max(width, 120);
-
-    height =
-        Math.max(height, 100);
-
-
-    const x =
-        centerX - width / 2;
-
-    const y =
-        centerY - height / 2;
+    statusText.innerText =
+        "✨ 2 tangan terdeteksi";
 
 
     const color =
-        filters[currentFilter].color;
+        filters[activeFilter].color;
 
 
     /*
-       Ganti filter setiap beberapa detik
-    */
+     * Gambar skeleton kedua tangan
+     */
+
+    drawHand(
+        hands[0],
+        color
+    );
+
+    drawHand(
+        hands[1],
+        color
+    );
+
+
+    /*
+     * Cari pusat kedua tangan
+     */
+
+    const hand1 =
+        getHandCenter(
+            hands[0]
+        );
+
+    const hand2 =
+        getHandCenter(
+            hands[1]
+        );
+
+
+    /*
+     * Hubungkan tangan
+     */
+
+    connectHands(
+        hand1,
+        hand2,
+        color
+    );
+
+
+    /*
+     * Buat shape di tengah
+     */
+
+    drawCenterShape(
+        hand1,
+        hand2,
+        color
+    );
+
+
+    /*
+     * Ganti filter setiap 4 detik
+     */
 
     if (
-        Date.now() - lastChange > 3500
+        Date.now() -
+        lastFilterChange >
+        4000
     ) {
 
         randomFilter();
 
-        lastChange = Date.now();
+        lastFilterChange =
+            Date.now();
 
     }
-
-
-    /* =====================
-       GARIS KE TANGAN
-    ===================== */
-
-    drawLine(
-        p1.x,
-        p1.y,
-        x,
-        y + height / 2,
-        color
-    );
-
-
-    drawLine(
-        p2.x,
-        p2.y,
-        x + width,
-        y + height / 2,
-        color
-    );
-
-
-    /* =====================
-       KOTAK
-    ===================== */
-
-    ctx.save();
-
-    ctx.strokeStyle = color;
-
-    ctx.lineWidth = 3;
-
-    ctx.shadowBlur = 20;
-
-    ctx.shadowColor = color;
-
-    ctx.strokeRect(
-        x,
-        y,
-        width,
-        height
-    );
-
-    ctx.restore();
-
-
-    /* =====================
-       CORNER
-    ===================== */
-
-    drawCorner(
-        x,
-        y,
-        25,
-        color
-    );
-
-    ctx.save();
-
-    ctx.translate(
-        x + width,
-        y
-    );
-
-    ctx.rotate(
-        Math.PI / 2
-    );
-
-    drawCorner(
-        0,
-        0,
-        25,
-        color
-    );
-
-    ctx.restore();
-
-
-    ctx.save();
-
-    ctx.translate(
-        x + width,
-        y + height
-    );
-
-    ctx.rotate(
-        Math.PI
-    );
-
-    drawCorner(
-        0,
-        0,
-        25,
-        color
-    );
-
-    ctx.restore();
-
-
-    ctx.save();
-
-    ctx.translate(
-        x,
-        y + height
-    );
-
-    ctx.rotate(
-        -Math.PI / 2
-    );
-
-    drawCorner(
-        0,
-        0,
-        25,
-        color
-    );
-
-    ctx.restore();
-
-
-    /* =====================
-       FILTER DALAM KOTAK
-    ===================== */
-
-    drawFilter(
-        x,
-        y,
-        width,
-        height,
-        color
-    );
-
-
-    /* =====================
-       PARTICLES
-    ===================== */
-
-    drawParticles(
-        x,
-        y,
-        width,
-        height,
-        color
-    );
-
-
-    /*
-       TITIK TANGAN
-    */
-
-    ctx.fillStyle = color;
-
-    ctx.shadowBlur = 15;
-
-    ctx.shadowColor = color;
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-        p1.x,
-        p1.y,
-        7,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-        p2.x,
-        p2.y,
-        7,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
 
 }
 
 
-/* =========================
-   MEDIAPIPE HANDS
-========================= */
+/* =================================
+   MEDIAPIPE
+================================= */
 
-const hands = new Hands({
+const hands =
+    new Hands({
 
-    locateFile: (file) => {
+        locateFile: file => {
 
-        return `
-        https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}
-        `;
+            return (
+                "https://cdn.jsdelivr.net/npm/" +
+                "@mediapipe/hands/" +
+                file
+            );
 
-    }
+        }
 
-});
+    });
 
 
 hands.setOptions({
@@ -803,44 +1094,58 @@ hands.setOptions({
 });
 
 
-hands.onResults(onResults);
+hands.onResults(
+    onResults
+);
 
 
-/* =========================
-   START CAMERA
-========================= */
+/* =================================
+   CAMERA
+================================= */
 
 startButton.addEventListener(
     "click",
     async () => {
 
+        startScreen.style.display =
+            "none";
+
+        loading.style.display =
+            "flex";
+
+
         try {
 
-            startScreen.style.display =
+            randomFilter();
+
+
+            const camera =
+                new Camera(
+                    video,
+                    {
+
+                        onFrame:
+                            async () => {
+
+                                await hands.send({
+                                    image: video
+                                });
+
+                            },
+
+                        width: 1280,
+
+                        height: 720
+
+                    }
+                );
+
+
+            await camera.start();
+
+
+            loading.style.display =
                 "none";
-
-
-            camera = new Camera(
-                video,
-                {
-
-                    onFrame: async () => {
-
-                        await hands.send({
-                            image: video
-                        });
-
-                    },
-
-                    width: 1280,
-
-                    height: 720
-
-                }
-            );
-
-
-            camera.start();
 
         }
 
@@ -848,11 +1153,16 @@ startButton.addEventListener(
 
             console.error(error);
 
+            loading.style.display =
+                "none";
+
             startScreen.style.display =
                 "flex";
 
             alert(
-                "Kamera tidak dapat dibuka. Pastikan izin kamera diberikan."
+                "Kamera gagal dibuka.\n\n" +
+                "Pastikan izin kamera sudah diberikan " +
+                "dan website dibuka menggunakan HTTPS."
             );
 
         }

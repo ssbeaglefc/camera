@@ -34,39 +34,31 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-    background: #000;
+    transform: scaleX(-1);
 }
 
 /* CANVAS */
 #canvas {
     position: absolute;
     inset: 0;
-
     width: 100%;
     height: 100%;
-
     pointer-events: none;
 }
 
-/* START */
+/* START SCREEN */
 #startScreen {
     position: absolute;
     inset: 0;
-
     z-index: 20;
 
     display: flex;
     flex-direction: column;
-
     justify-content: center;
     align-items: center;
 
     padding: 25px;
-
     text-align: center;
-
     color: white;
 
     background:
@@ -84,23 +76,18 @@ body {
 
 #startScreen p {
     max-width: 320px;
-
     color: #aaa;
-
     line-height: 1.5;
 }
 
 #startButton {
     margin-top: 20px;
-
     padding: 15px 30px;
 
     border: 0;
-
     border-radius: 50px;
 
     background: #00ff88;
-
     color: #00150b;
 
     font-size: 16px;
@@ -114,7 +101,6 @@ body {
 /* STATUS */
 #status {
     position: absolute;
-
     z-index: 10;
 
     top: 20px;
@@ -131,9 +117,7 @@ body {
     background: rgba(0,0,0,.6);
 
     color: white;
-
     font-size: 13px;
-
     text-align: center;
 
     backdrop-filter: blur(8px);
@@ -142,7 +126,6 @@ body {
 /* FILTER */
 #filterName {
     position: absolute;
-
     z-index: 10;
 
     left: 50%;
@@ -157,7 +140,6 @@ body {
     background: rgba(0,0,0,.6);
 
     color: white;
-
     font-size: 12px;
 
     backdrop-filter: blur(8px);
@@ -169,11 +151,7 @@ body {
 
 <div id="app">
 
-    <video
-        id="video"
-        autoplay
-        playsinline>
-    </video>
+    <video id="video" autoplay playsinline></video>
 
     <canvas id="canvas"></canvas>
 
@@ -192,6 +170,8 @@ body {
         <p>
             Aktifkan kamera lalu tunjukkan
             tangan ke kamera.
+            Gunakan dua tangan untuk
+            mengaktifkan efek AR.
         </p>
 
         <button id="startButton">
@@ -202,15 +182,13 @@ body {
 
 </div>
 
-
-<!-- =========================
-     MEDIAPIPE HANDS
-========================= -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
-
 <script>
+
+/* =====================================
+   ELEMENT
+===================================== */
 
 const video =
     document.getElementById("video");
@@ -234,9 +212,9 @@ const filterName =
     document.getElementById("filterName");
 
 
-/* =========================
+/* =====================================
    CANVAS
-========================= */
+===================================== */
 
 function resizeCanvas() {
 
@@ -256,30 +234,66 @@ window.addEventListener(
 );
 
 
-/* =========================
+/* =====================================
    FILTER
-========================= */
+===================================== */
 
 const filters = [
 
-    ["NEON GREEN", "#00ff88"],
+    {
+        name: "NEON GREEN",
+        color: "#00ff88",
+        type: "normal"
+    },
 
-    ["CYBER BLUE", "#00eaff"],
+    {
+        name: "CYBER BLUE",
+        color: "#00eaff",
+        type: "rgb"
+    },
 
-    ["PURPLE ENERGY", "#b866ff"],
+    {
+        name: "PURPLE ENERGY",
+        color: "#b866ff",
+        type: "blur"
+    },
 
-    ["FIRE", "#ff5533"],
+    {
+        name: "NEGATIVE",
+        color: "#ffffff",
+        type: "negative"
+    },
 
-    ["GOLD", "#ffd700"],
+    {
+        name: "FIRE",
+        color: "#ff5533",
+        type: "fire"
+    },
 
-    ["ICE", "#66ddff"]
+    {
+        name: "GOLD",
+        color: "#ffd700",
+        type: "gold"
+    },
+
+    {
+        name: "ICE",
+        color: "#66ddff",
+        type: "ice"
+    },
+
+    {
+        name: "GLITCH",
+        color: "#ff00ff",
+        type: "glitch"
+    }
 
 ];
 
 let filterIndex = 0;
 
-let lastFilterChange = Date.now();
-
+let lastFilterChange =
+    Date.now();
 
 function changeFilter() {
 
@@ -291,14 +305,14 @@ function changeFilter() {
 
     filterName.innerText =
         "FILTER: " +
-        filters[filterIndex][0];
+        filters[filterIndex].name;
 
 }
 
 
-/* =========================
-   LANDMARK
-========================= */
+/* =====================================
+   POINT
+===================================== */
 
 function getPoint(p) {
 
@@ -317,49 +331,43 @@ function getPoint(p) {
 }
 
 
-/* =========================
-   21 LANDMARK CONNECTIONS
-========================= */
+/* =====================================
+   HAND CONNECTIONS
+===================================== */
 
 const connections = [
 
     /* THUMB */
-
     [0,1],
     [1,2],
     [2,3],
     [3,4],
 
     /* INDEX */
-
     [0,5],
     [5,6],
     [6,7],
     [7,8],
 
     /* MIDDLE */
-
     [0,9],
     [9,10],
     [10,11],
     [11,12],
 
     /* RING */
-
     [0,13],
     [13,14],
     [14,15],
     [15,16],
 
     /* PINKY */
-
     [0,17],
     [17,18],
     [18,19],
     [19,20],
 
     /* PALM */
-
     [5,9],
     [9,13],
     [13,17]
@@ -367,9 +375,9 @@ const connections = [
 ];
 
 
-/* =========================
+/* =====================================
    DRAW HAND
-========================= */
+===================================== */
 
 function drawHand(
     landmarks,
@@ -380,9 +388,6 @@ function drawHand(
         landmarks.map(
             getPoint
         );
-
-
-    /* GARIS */
 
     ctx.save();
 
@@ -406,7 +411,6 @@ function drawHand(
             const b =
                 points[pair[1]];
 
-
             ctx.beginPath();
 
             ctx.moveTo(
@@ -427,7 +431,7 @@ function drawHand(
     ctx.restore();
 
 
-    /* TITIK */
+    /* POINTS */
 
     points.forEach(
         (p, i) => {
@@ -440,7 +444,6 @@ function drawHand(
                 ? 5
                 : 3;
 
-
             ctx.save();
 
             ctx.fillStyle =
@@ -450,7 +453,6 @@ function drawHand(
                 color;
 
             ctx.shadowBlur = 15;
-
 
             ctx.beginPath();
 
@@ -472,9 +474,9 @@ function drawHand(
 }
 
 
-/* =========================
+/* =====================================
    HAND CENTER
-========================= */
+===================================== */
 
 function handCenter(hand) {
 
@@ -488,7 +490,6 @@ function handCenter(hand) {
 
     let x = 0;
     let y = 0;
-
 
     ids.forEach(
         id => {
@@ -504,21 +505,22 @@ function handCenter(hand) {
         }
     );
 
-
     return {
 
-        x: x / ids.length,
+        x:
+            x / ids.length,
 
-        y: y / ids.length
+        y:
+            y / ids.length
 
     };
 
 }
 
 
-/* =========================
+/* =====================================
    DISTANCE
-========================= */
+===================================== */
 
 function distance(a,b) {
 
@@ -541,74 +543,45 @@ function distance(a,b) {
 }
 
 
-/* =========================
-   CONNECT TWO HANDS
-========================= */
+/* =====================================
+   BETWEEN HANDS
+===================================== */
 
-function drawTwoHandEffect(
-    a,
-    b,
-    color
+function drawBetweenHands(
+    hand1,
+    hand2,
+    color,
+    type
 ) {
 
     const d =
-        distance(a,b);
-
+        distance(
+            hand1,
+            hand2
+        );
 
     const centerX =
-        (a.x + b.x) / 2;
+        (hand1.x + hand2.x) / 2;
 
     const centerY =
-        (a.y + b.y) / 2;
+        (hand1.y + hand2.y) / 2;
 
 
-    /* =====================
-       MAIN LINE
-    ===================== */
-
-    ctx.save();
-
-    ctx.strokeStyle =
-        color;
-
-    ctx.lineWidth = 3;
-
-    ctx.shadowColor =
-        color;
-
-    ctx.shadowBlur = 20;
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        a.x,
-        a.y
-    );
-
-    ctx.lineTo(
-        b.x,
-        b.y
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-
-
-    /* =====================
-       RECTANGLE
-    ===================== */
+    /*
+       LIMIT EFFECT
+    */
 
     const width =
         Math.max(
-            120,
-            d * .8
+            150,
+            Math.min(
+                d * 1.1,
+                canvas.width * .9
+            )
         );
 
     const height =
-        width * .6;
-
+        width * .55;
 
     const x =
         centerX -
@@ -619,18 +592,11 @@ function drawTwoHandEffect(
         height / 2;
 
 
+    /* =================================
+       OUTER ENERGY
+    ================================= */
+
     ctx.save();
-
-    ctx.fillStyle =
-        color + "12";
-
-    ctx.fillRect(
-        x,
-        y,
-        width,
-        height
-    );
-
 
     ctx.strokeStyle =
         color;
@@ -642,61 +608,342 @@ function drawTwoHandEffect(
 
     ctx.shadowBlur = 25;
 
-    ctx.strokeRect(
-        x,
-        y,
-        width,
-        height
-    );
-
-    ctx.restore();
-
-
-    /* =====================
-       DIAMOND
-    ===================== */
-
-    ctx.save();
-
-    ctx.strokeStyle =
-        color + "99";
-
-    ctx.lineWidth = 2;
-
     ctx.beginPath();
 
     ctx.moveTo(
-        centerX,
-        y + 15
+        hand1.x,
+        hand1.y
     );
 
     ctx.lineTo(
-        x + width - 15,
-        centerY
+        hand2.x,
+        hand2.y
     );
-
-    ctx.lineTo(
-        centerX,
-        y + height - 15
-    );
-
-    ctx.lineTo(
-        x + 15,
-        centerY
-    );
-
-    ctx.closePath();
 
     ctx.stroke();
 
     ctx.restore();
 
 
-    /* =====================
-       CENTER
-    ===================== */
+    /* =================================
+       EFFECT AREA
+    ================================= */
 
     ctx.save();
+
+    ctx.beginPath();
+
+    ctx.roundRect(
+        x,
+        y,
+        width,
+        height,
+        30
+    );
+
+    ctx.clip();
+
+
+    /* BASE */
+    ctx.fillStyle =
+        color + "18";
+
+    ctx.fillRect(
+        x,
+        y,
+        width,
+        height
+    );
+
+
+    /* =================================
+       BLUR EFFECT
+    ================================= */
+
+    if (
+        type === "blur" ||
+        type === "ice"
+    ) {
+
+        ctx.filter =
+            "blur(12px)";
+
+        for (
+            let i = 0;
+            i < 10;
+            i++
+        ) {
+
+            ctx.fillStyle =
+                color + "30";
+
+            ctx.beginPath();
+
+            ctx.arc(
+                x +
+                Math.random() *
+                width,
+
+                y +
+                Math.random() *
+                height,
+
+                30 +
+                Math.random() * 60,
+
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+        }
+
+    }
+
+
+    /* =================================
+       NEGATIVE
+    ================================= */
+
+    if (
+        type === "negative"
+    ) {
+
+        ctx.globalCompositeOperation =
+            "difference";
+
+        ctx.fillStyle =
+            "#ffffff";
+
+        ctx.fillRect(
+            x,
+            y,
+            width,
+            height
+        );
+
+        ctx.globalCompositeOperation =
+            "source-over";
+
+    }
+
+
+    /* =================================
+       RGB
+    ================================= */
+
+    if (
+        type === "rgb"
+    ) {
+
+        const rgbColors = [
+            "#ff0055",
+            "#00ffff",
+            "#5500ff"
+        ];
+
+        for (
+            let i = 0;
+            i < 18;
+            i++
+        ) {
+
+            ctx.fillStyle =
+                rgbColors[
+                    i %
+                    rgbColors.length
+                ];
+
+            ctx.globalAlpha =
+                .12;
+
+            ctx.beginPath();
+
+            ctx.arc(
+                x +
+                Math.random() *
+                width,
+
+                y +
+                Math.random() *
+                height,
+
+                15 +
+                Math.random() * 40,
+
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+        }
+
+        ctx.globalAlpha = 1;
+
+    }
+
+
+    /* =================================
+       FIRE
+    ================================= */
+
+    if (
+        type === "fire"
+    ) {
+
+        for (
+            let i = 0;
+            i < 35;
+            i++
+        ) {
+
+            const px =
+                x +
+                Math.random() *
+                width;
+
+            const py =
+                y +
+                Math.random() *
+                height;
+
+            ctx.fillStyle =
+                Math.random() > .5
+                ? "#ff3300"
+                : "#ffaa00";
+
+            ctx.globalAlpha =
+                Math.random() * .7;
+
+            ctx.beginPath();
+
+            ctx.arc(
+                px,
+                py,
+                Math.random() * 5 + 1,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+        }
+
+        ctx.globalAlpha = 1;
+
+    }
+
+
+    /* =================================
+       GOLD
+    ================================= */
+
+    if (
+        type === "gold"
+    ) {
+
+        for (
+            let i = 0;
+            i < 30;
+            i++
+        ) {
+
+            const px =
+                x +
+                Math.random() *
+                width;
+
+            const py =
+                y +
+                Math.random() *
+                height;
+
+            ctx.fillStyle =
+                "#ffd700";
+
+            ctx.shadowColor =
+                "#ffd700";
+
+            ctx.shadowBlur = 15;
+
+            ctx.beginPath();
+
+            ctx.arc(
+                px,
+                py,
+                Math.random() * 3,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+        }
+
+    }
+
+
+    /* =================================
+       GLITCH
+    ================================= */
+
+    if (
+        type === "glitch"
+    ) {
+
+        for (
+            let i = 0;
+            i < 30;
+            i++
+        ) {
+
+            const gy =
+                y +
+                Math.random() *
+                height;
+
+            ctx.fillStyle =
+                Math.random() > .5
+                ? "#ff00ff"
+                : "#00ffff";
+
+            ctx.globalAlpha =
+                .4;
+
+            ctx.fillRect(
+
+                x +
+                Math.random() *
+                width,
+
+                gy,
+
+                20 +
+                Math.random() * 80,
+
+                2 +
+                Math.random() * 5
+
+            );
+
+        }
+
+        ctx.globalAlpha = 1;
+
+    }
+
+
+    /* =================================
+       WAVE
+    ================================= */
+
+    ctx.filter =
+        "none";
+
+    ctx.globalAlpha =
+        .8;
 
     ctx.strokeStyle =
         color;
@@ -706,17 +953,97 @@ function drawTwoHandEffect(
     ctx.shadowColor =
         color;
 
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 15;
+
+
+    for (
+        let wave = 0;
+        wave < 4;
+        wave++
+    ) {
+
+        ctx.beginPath();
+
+        for (
+            let i = 0;
+            i <= width;
+            i += 10
+        ) {
+
+            const waveY =
+                centerY +
+                Math.sin(
+                    i * .035 +
+                    performance.now() *
+                    .004 +
+                    wave
+                ) *
+                15;
+
+            if (i === 0) {
+
+                ctx.moveTo(
+                    x + i,
+                    waveY
+                );
+
+            } else {
+
+                ctx.lineTo(
+                    x + i,
+                    waveY
+                );
+
+            }
+
+        }
+
+        ctx.stroke();
+
+    }
+
+    ctx.restore();
+
+
+    /* =================================
+       CONNECT FINGERS
+    ================================= */
+
+    drawCrossConnections(
+        hand1,
+        hand2,
+        color
+    );
+
+
+    /* =================================
+       CENTER ENERGY
+    ================================= */
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        color;
+
+    ctx.lineWidth = 3;
+
+    ctx.shadowColor =
+        color;
+
+    ctx.shadowBlur = 30;
+
+    const pulse =
+        20 +
+        Math.sin(
+            performance.now() * .006
+        ) * 8;
 
     ctx.beginPath();
 
     ctx.arc(
         centerX,
         centerY,
-        Math.min(
-            width,
-            height
-        ) * .12,
+        pulse,
         0,
         Math.PI * 2
     );
@@ -725,64 +1052,108 @@ function drawTwoHandEffect(
 
     ctx.restore();
 
-
-    /* =====================
-       PARTICLES
-    ===================== */
-
-    for (
-        let i = 0;
-        i < 25;
-        i++
-    ) {
-
-        const px =
-            x +
-            Math.random() *
-            width;
-
-        const py =
-            y +
-            Math.random() *
-            height;
+}
 
 
-        ctx.save();
+/* =====================================
+   CROSS CONNECTIONS
+===================================== */
 
-        ctx.fillStyle =
-            color;
+function drawCrossConnections(
+    hand1,
+    hand2,
+    color
+) {
 
-        ctx.globalAlpha =
-            Math.random() * .7;
+    /*
+       Jari-jari:
+       thumb
+       index
+       middle
+       ring
+       pinky
+    */
 
-        ctx.shadowColor =
-            color;
+    const fingers = [
+        [4,4],
+        [8,8],
+        [12,12],
+        [16,16],
+        [20,20]
+    ];
 
-        ctx.shadowBlur = 10;
+
+    fingers.forEach(
+        pair => {
+
+            const a =
+                getPoint(
+                    hand1[pair[0]]
+                );
+
+            const b =
+                getPoint(
+                    hand2[pair[1]]
+                );
 
 
-        ctx.beginPath();
+            ctx.save();
 
-        ctx.arc(
-            px,
-            py,
-            Math.random() * 2 + .5,
-            0,
-            Math.PI * 2
-        );
+            ctx.strokeStyle =
+                color;
 
-        ctx.fill();
+            ctx.lineWidth = 2;
 
-        ctx.restore();
+            ctx.shadowColor =
+                color;
 
-    }
+            ctx.shadowBlur = 15;
+
+            ctx.globalAlpha =
+                .8;
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                a.x,
+                a.y
+            );
+
+            /*
+               CURVE
+            */
+
+            const cx =
+                (a.x + b.x) / 2;
+
+            const cy =
+                (a.y + b.y) / 2;
+
+            ctx.quadraticCurveTo(
+
+                cx,
+                cy -
+                40,
+
+                b.x,
+                b.y
+
+            );
+
+            ctx.stroke();
+
+            ctx.restore();
+
+        }
+    );
 
 }
 
 
-/* =========================
+/* =====================================
    MEDIAPIPE
-========================= */
+===================================== */
 
 const hands =
     new Hands({
@@ -813,6 +1184,10 @@ hands.setOptions({
 });
 
 
+/* =====================================
+   RESULTS
+===================================== */
+
 hands.onResults(
     function(results) {
 
@@ -841,15 +1216,19 @@ hands.onResults(
         }
 
 
-        const color =
+        const currentFilter =
             filters[
                 filterIndex
-            ][1];
+            ];
 
 
-        /* ==================
-           DRAW SEMUA TANGAN
-        ================== */
+        const color =
+            currentFilter.color;
+
+
+        /* =================================
+           DRAW HANDS
+        ================================= */
 
         detected.forEach(
             hand => {
@@ -863,33 +1242,26 @@ hands.onResults(
         );
 
 
-        /* ==================
-           DUA TANGAN
-        ================== */
+        /* =================================
+           TWO HANDS
+        ================================= */
 
         if (
             detected.length >= 2
         ) {
 
             status.innerText =
-                "✨ 2 tangan terdeteksi";
+                "⚡ 2 TANGAN TERHUBUNG";
 
+            drawBetweenHands(
 
-            const hand1 =
-                handCenter(
-                    detected[0]
-                );
+                detected[0],
+                detected[1],
 
-            const hand2 =
-                handCenter(
-                    detected[1]
-                );
+                color,
 
+                currentFilter.type
 
-            drawTwoHandEffect(
-                hand1,
-                hand2,
-                color
             );
 
         }
@@ -902,9 +1274,9 @@ hands.onResults(
         }
 
 
-        /* ==================
-           RANDOM FILTER
-        ================== */
+        /* =================================
+           CHANGE FILTER
+        ================================= */
 
         if (
             Date.now() -
@@ -923,9 +1295,9 @@ hands.onResults(
 );
 
 
-/* =========================
+/* =====================================
    CAMERA
-========================= */
+===================================== */
 
 startButton.addEventListener(
     "click",
@@ -950,10 +1322,6 @@ startButton.addEventListener(
             }
 
 
-            /*
-             * AKSES KAMERA
-             */
-
             const stream =
                 await navigator.mediaDevices
                 .getUserMedia({
@@ -965,99 +1333,4 @@ startButton.addEventListener(
 
                         width: {
                             ideal: 1280
-                        },
-
-                        height: {
-                            ideal: 720
-                        }
-
-                    },
-
-                    audio: false
-
-                });
-
-
-            video.srcObject =
-                stream;
-
-
-            /*
-             * Tampilkan video
-             */
-
-            video.style.display =
-                "block";
-
-
-            startScreen.style.display =
-                "none";
-
-
-            status.innerText =
-                "⏳ Memuat hand tracking...";
-
-
-            /*
-             * Tunggu video aktif
-             */
-
-            await video.play();
-
-
-            /*
-             * MULAI MEDIAPIPE
-             */
-
-            async function processFrame() {
-
-                if (
-                    video.readyState >= 2
-                ) {
-
-                    await hands.send({
-                        image: video
-                    });
-
-                }
-
-
-                requestAnimationFrame(
-                    processFrame
-                );
-
-            }
-
-
-            processFrame();
-
-
-            changeFilter();
-
-
-        }
-
-        catch(error) {
-
-            console.error(error);
-
-
-            status.innerText =
-                "❌ " +
-                error.message;
-
-
-            alert(
-                "KAMERA GAGAL\n\n" +
-                error.message
-            );
-
-        }
-
-    }
-);
-
-</script>
-
-</body>
-</html>
+                  
